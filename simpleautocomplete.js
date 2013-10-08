@@ -2,11 +2,8 @@
 
 'use strict';
 
-// Keep a reference of the global object (window or exports).
-var root = window;
-
 // SimpleAutocomplete.
-var SimpleAutocomplete = root.SimpleAutocomplete = {};
+var SimpleAutocomplete = window.SimpleAutocomplete = {};
 
 // Bind a function to a context.
 SimpleAutocomplete.bind = function (fn, context) {
@@ -972,4 +969,4 @@ SimpleAutocomplete.autocomplete = function (element, source, options) {
   return new SimpleAutocomplete.Autocomplete(element, source, options);
 };
 
-})(this);
+})();
