@@ -338,7 +338,14 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     // Minimun length of the query in order to load the data.
     minLength: 1,
     // Lock the enter key, preventing default behavior.
-    lockEnter: true
+    lockEnter: true,
+
+    // Classes used to theme the autocomplete widget.
+    classes: {
+      selector: 'simpleautocomplete-selector',
+      suggestion: 'simpleautocomplete-suggestion',
+      selected: 'simpleautocomplete-suggestion-selected'
+    }
   },
 
   // Constructor.
@@ -350,6 +357,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     this.source = source;
     this.cache = {};
     this.listeners = {};
+    this.suggestionMatcher = new RegExp(this.options.classes.suggestion + '-(\\d+)');
 
     // Bind event handlers.
     this.handleFocus = SimpleAutocomplete.bind(this.handleFocus, this);
@@ -438,6 +446,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     this.selector = null;
     this.suggestions = null;
     this.selection = null;
+    this.suggestionMatcher = null;
   },
 
   setElement: function (element) {
@@ -575,17 +584,21 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Selector/suggestions mouse over/out callback.
   handleSuggestionOver: function (event) {
     var element = event.target,
-        hasClass = SimpleAutocomplete.hasClass;
+        hasClass = SimpleAutocomplete.hasClass,
+        classes = this.options.classes,
+        classSelector = classes.selector,
+        classSuggestion = classes.suggestion,
+        classSelected = classes.selected;
 
-    if (hasClass(event.target, 'autocomplete-selector')) {
+    if (hasClass(event.target, classSelector)) {
       return;
     }
-    else if (!hasClass(element, 'autocomplete-suggestion')) {
+    else if (!hasClass(element, classSuggestion)) {
       while ((element = element.parentNode) !== null) {
-        if (hasClass(element, 'autocomplete-suggestion')) {
+        if (hasClass(element, classSuggestion)) {
           break;
         }
-        else if (hasClass(event.target, 'autocomplete-selector')) {
+        else if (hasClass(event.target, classSelector)) {
           return;
         }
       }
@@ -593,11 +606,11 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
     if (element) {
       if (event.type === 'mouseout') {
-        SimpleAutocomplete.removeClass(element, 'autocomplete-suggestion-selected');
+        SimpleAutocomplete.removeClass(element, classSelected);
       }
       else if (event.type === 'mouseover') {
         this.unselectSuggestions();
-        SimpleAutocomplete.addClass(element, 'autocomplete-suggestion-selected');
+        SimpleAutocomplete.addClass(element, classSelected);
       }
     }
   },
@@ -605,7 +618,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Suggestion selection callback.
   handleSuggestionSelect: function (event) {
     var element = event.target;
-    if (element && SimpleAutocomplete.hasClass(element, 'autocomplete-suggestion')) {
+    if (element && SimpleAutocomplete.hasClass(element, this.options.classes.suggestion)) {
       var suggestion = this.getSuggestion(element);
       this.options.select(suggestion);
       this.fire('selected', suggestion);
@@ -618,8 +631,10 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
         data = this.getCache(this.options.cacheKey(query));
 
     if (data && data.length) {
-      var limit = this.options.limit < data.length ? this.options.limit : data.length,
-          render = this.options.render,
+      var options = this.options,
+          classSuggestion = options.classes.suggestion,
+          limit = options.limit < data.length ? options.limit : data.length,
+          render = options.render,
           content = [],
           suggestions = {length: limit + 1},
           suggestion, i, key;
@@ -627,8 +642,8 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       // Add suggestions.
       for (i = 0; i < limit; i++) {
         suggestion = data[i];
-        key = 'autocomplete-suggestion-' + (i + 1);
-        content.push('<div class="autocomplete-suggestion ' + key + '">' + render(query, suggestion) + '</div>');
+        key = classSuggestion + '-' + (i + 1);
+        content.push('<div class="' + classSuggestion + ' ' + key + '">' + render(query, suggestion) + '</div>');
         suggestions[key] = suggestion;
       }
 
@@ -660,9 +675,12 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Build the selector.
   createSelector: function () {
     if (!this.selector) {
-      var selector = document.createElement('div');
+      var selector = document.createElement('div'),
+          classes = this.options.classes,
+          classSelector = classes.selector,
+          classSelected = classes.selected;
 
-      selector.className = 'autocomplete-selector';
+      selector.className = classSelector;
       selector.style.display = 'none';
       selector.style.overflowY = 'auto';
 
@@ -670,7 +688,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       // If available, we keep a reference to the selected suggestions.
       // It's a live HTMLCollection.
       if (selector.getElementsByClassName) {
-        this.selection = selector.getElementsByClassName('autocomplete-suggestion-selected');
+        this.selection = selector.getElementsByClassName(classSelected);
       }
 
       this.updateSelector();
@@ -754,7 +772,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     }
 
     if ((element = selector.children[index - 1])) {
-      SimpleAutocomplete.addClass(element, 'autocomplete-suggestion-selected');
+      SimpleAutocomplete.addClass(element, this.options.classes.selected);
 
       // Handle scrolling inside the selector.
       var selectorBounds = selector.getBoundingClientRect(),
@@ -776,12 +794,13 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
   // Unselect all the suggestions.
   unselectSuggestions: function () {
-    var elements = this.selection ? this.selection : this.selector.children,
+    var elements = this.selection || this.selector.children,
         removeClass = SimpleAutocomplete.removeClass,
+        classSelected = this.options.classes.selected,
         i, l;
 
     for (i = 0, l = elements.length; i < l; i++) {
-      removeClass(elements[i], 'autocomplete-suggestion-selected');
+      removeClass(elements[i], classSelected);
     }
   },
 
@@ -793,10 +812,11 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
     var elements = this.selector.children,
         hasClass = SimpleAutocomplete.hasClass,
+        classSelected = this.options.classes.selected,
         i, l, element;
     for (i = 0, l = elements.length; i < l; i++) {
       element = elements[i];
-      if (hasClass(element, 'autocomplete-suggestion-selected')) {
+      if (hasClass(element, classSelected)) {
         return element;
       }
     }
@@ -806,8 +826,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Get the suggestion key from the corresponding DOM element.
   getSuggestionKey: function (element, indexOnly) {
     if (element) {
-      var pattern = /autocomplete-suggestion-(\d+)/,
-          match = pattern.exec(element.className);
+      var match = this.suggestionMatcher.exec(element.className);
       if (match !== null) {
         return indexOnly ? parseInt(match[1], 10) || 0 : match[0];
       }
