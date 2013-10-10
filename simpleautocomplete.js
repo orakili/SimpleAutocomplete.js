@@ -460,8 +460,8 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     var source = this.options.prepare(query, this.source),
         context = this;
 
-    // Do nothing if source is null.
-    if (source === null) {
+    // Do nothing if source is undefined or null.
+    if (typeof source === 'undefined' || source === null) {
       return;
     }
 
