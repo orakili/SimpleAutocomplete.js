@@ -536,6 +536,10 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
   // Handle focus on the input element.
   handleFocus: function (event) {
+    if (this.enabled === false) {
+      return;
+    }
+
     if (event.type === 'focus') {
       this.handleQuery(event.target.value);
     }
@@ -546,7 +550,12 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
   // Input element key down and up callback.
   handleKeyPress: function (event) {
+    if (this.enabled === false) {
+      return;
+    }
+
     var key = event.witch ? event.witch : event.keyCode;
+
     if (event.type === 'keydown') {
       switch (key) {
         case 9:
@@ -572,7 +581,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     }
 
     if (key === 13 && this.options.lockEnter) {
-      event.preventDefault();
+      event.preventDefault ? event.preventDefault() : event.returnValue = false;
       this.fire('enter', event);
     }
     return false;
@@ -587,7 +596,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
         classSuggestion = classes.suggestion,
         classSelected = classes.selected;
 
-    if (hasClass(event.target, classSelector)) {
+    if (hasClass(element, classSelector)) {
       return;
     }
     else if (!hasClass(element, classSuggestion)) {
@@ -595,7 +604,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
         if (hasClass(element, classSuggestion)) {
           break;
         }
-        else if (hasClass(event.target, classSelector)) {
+        else if (hasClass(element, classSelector)) {
           return;
         }
       }
@@ -721,6 +730,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     if (this.element) {
       this.element.value = query;
     }
+    return this;
   },
 
   // Get the value form the input element.
@@ -852,6 +862,19 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   clear: function () {
     this.setQuery('');
     this.hideSelector();
+    return this;
+  },
+
+  // Disable the widget.
+  disable: function () {
+    this.enabled = false;
+    return this;
+  },
+
+  // Enable the widget.
+  enable: function () {
+    this.enabled = true;
+    return this;
   },
 
   // Add a listener to the autocomplete events.
@@ -899,6 +922,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
         listeners[i](event);
       }
     }
+    return this;
   },
 
   // Highlight the query terms in the suggestions.
