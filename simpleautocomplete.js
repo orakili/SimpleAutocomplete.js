@@ -37,7 +37,7 @@ SimpleAutocomplete.get = function (url, callback, options) {
 
   // Make sure the callback is executed only once by setting it to noop.
   handler = function () {
-    callback.apply(null, arguments);
+    callback.apply(xhr, arguments);
     callback = function () {};
   };
 
@@ -56,10 +56,22 @@ SimpleAutocomplete.get = function (url, callback, options) {
     handler(false, this.statusText);
   };
 
+  xhr.open('GET', url, true);
+
+  // Set headers if any.
+  if (options && options.headers && 'withCredentials' in xhr) {
+    var headers = options.headers, header;
+    for (header in headers) {
+      if (headers.hasOwnProperty(header)) {
+        xhr.setRequestHeader(header, headers[header]);
+      }
+    }
+    delete options.headers;
+  }
+
   // Extra parameters and overrides.
   SimpleAutocomplete.extend(xhr, options);
 
-  xhr.open('GET', url, true);
   xhr.send(null);
 
   return xhr;
@@ -67,22 +79,26 @@ SimpleAutocomplete.get = function (url, callback, options) {
 
 // Add an event to an element. Return the handler.
 SimpleAutocomplete.addEventListener = function (element, eventName, handler, context) {
-  var names = eventName.split(/\s+/), i, l;
+  var elements = (element === document || element.tagName) ? [element] : element,
+      names = eventName.split(/\s+/), i, l, j, m;
 
   if (context) {
     handler = SimpleAutocomplete.bind(handler, context);
   }
 
-  for (i = 0, l = names.length; i < l; i++) {
-    eventName = names[i];
-    if (element.addEventListener) {
-      element.addEventListener(eventName, handler, false);
-    }
-    else if (element.attachEvent) {
-      element.attachEvent('on' + eventName, handler);
-    }
-    else {
-      element['on' + eventName] = handler;
+  for (j = 0, m = elements.length; j < m; j++) {
+    element = elements[j];
+    for (i = 0, l = names.length; i < l; i++) {
+      eventName = names[i];
+      if (element.addEventListener) {
+        element.addEventListener(eventName, handler, false);
+      }
+      else if (element.attachEvent) {
+        element.attachEvent('on' + eventName, handler);
+      }
+      else {
+        element['on' + eventName] = handler;
+      }
     }
   }
 
@@ -91,18 +107,22 @@ SimpleAutocomplete.addEventListener = function (element, eventName, handler, con
 
 // Remove an event from an element.
 SimpleAutocomplete.removeEventListener = function (element, eventName, handler) {
-  var names = eventName.split(/\s+/), i, l;
+  var elements = (element === document || element.tagName) ? [element] : element,
+      names = eventName.split(/\s+/), i, l, j, m;
 
-  for (i = 0, l = names.length; i < l; i++) {
-    eventName = names[i];
-    if (element.removeEventListener) {
-      element.removeEventListener(eventName, handler, false);
-    }
-    else if (element.detachEvent) {
-      element.detachEvent('on' + eventName, handler);
-    }
-    else {
-      element['on' + eventName] = null;
+  for (j = 0, m = elements.length; j < m; j++) {
+    element = elements[j];
+    for (i = 0, l = names.length; i < l; i++) {
+      eventName = names[i];
+      if (element.removeEventListener) {
+        element.removeEventListener(eventName, handler, false);
+      }
+      else if (element.detachEvent) {
+        element.detachEvent('on' + eventName, handler);
+      }
+      else {
+        element['on' + eventName] = null;
+      }
     }
   }
 };
@@ -125,18 +145,18 @@ SimpleAutocomplete.getStyle = function (element, property, pseudoElement) {
 
 // Handle DOM element classes.
 SimpleAutocomplete.hasClass = function (element, className) {
-  if (element && element.className.length > 0) {
+  if (element && typeof element.className !== 'undefined' && element.className.length > 0) {
     return element.className === className || (' ' + element.className + ' ').indexOf(' ' + className + ' ') !== -1;
   }
   return false;
 };
 SimpleAutocomplete.addClass = function (element, className) {
-  if (element && !SimpleAutocomplete.hasClass(element, className)) {
+  if (element && typeof element.className !== 'undefined' && !SimpleAutocomplete.hasClass(element, className)) {
     element.className += (element.className.length > 0 ? ' ' : '') + className;
   }
 };
 SimpleAutocomplete.removeClass = function (element, className) {
-  if (element && element.className.length > 0) {
+  if (element && typeof element.className !== 'undefined' && element.className.length > 0) {
     element.className = SimpleAutocomplete.trim((' ' + element.className + ' ').replace(' ' + className + ' ', ''));
   }
 };
@@ -277,6 +297,11 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       return 'query_' + SimpleAutocomplete.removeDiacritics(query);
     },
 
+    // Request data from a URL.
+    requestURL: function (url, callback) {
+      return SimpleAutocomplete.get(url, callback);
+    },
+
     // Pre-process the value of the input element.
     input: function (query) {
       return query;
@@ -336,6 +361,10 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     minLength: 1,
     // Lock the enter key, preventing default behavior.
     lockEnter: true,
+    // Maximum number of concurrent requests.
+    maxRequests: 8,
+    // Automatically update the selector position before display.
+    autoUpdateSelector: false,
 
     // Classes used to theme the autocomplete widget.
     classes: {
@@ -352,6 +381,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     this.setOptions(options);
 
     this.source = source;
+    this.requests = [];
     this.cache = {};
     this.listeners = {};
     this.suggestionMatcher = new RegExp(this.options.classes.suggestion + '-(\\d+)');
@@ -364,11 +394,15 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
     // Bind options callbacks.
     this.options.cacheKey = SimpleAutocomplete.bind(this.options.cacheKey, this);
+    this.options.requestURL = SimpleAutocomplete.bind(this.options.requestURL, this);
     this.options.input = SimpleAutocomplete.bind(this.options.input, this);
     this.options.prepare = SimpleAutocomplete.bind(this.options.prepare, this);
     this.options.filter = SimpleAutocomplete.bind(this.options.filter, this);
     this.options.render = SimpleAutocomplete.bind(this.options.render, this);
     this.options.select = SimpleAutocomplete.bind(this.options.select, this);
+
+    // Bind other functions.
+    this.removeRequest = SimpleAutocomplete.bind(this.removeRequest, this);
 
     // Get the element.
     if (typeof element === 'string') {
@@ -436,7 +470,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     }
 
     this.source = null;
-    this.xhr = null;
+    this.requests = null,
     this.cache = null;
     this.listeners = null;
     this.element = null;
@@ -454,11 +488,43 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     return this.element ? this.element : null;
   },
 
+  // Load data from a URL.
+  loadURL: function (query, url, cacheKey) {
+    var context = this, xhr;
+
+    if (this.requests.length > this.options.maxRequests) {
+      xhr = this.requests.shift();
+      xhr.abort();
+    }
+
+    var callback = function (success, data) {
+      context.removeRequest(this);
+
+      if (success) {
+        context.handleData(query, data, cacheKey);
+      }
+      else {
+        context.handleError(data);
+      }
+    };
+
+    this.requests.push(this.options.requestURL(url, callback));
+  },
+
+  // Remove a request from the list of requests.
+  removeRequest: function (xhr) {
+    var i, l, requests = this.requests;
+    for (i = 0, l = requests.length; i < l; i++) {
+      if (requests[i] === xhr) {
+        return requests.splice(i, 1);
+      }
+    }
+  },
+
   // Load the data for a query.
   loadData: function (query, cacheKey) {
     // Prepare the data.
-    var source = this.options.prepare(query, this.source),
-        context = this;
+    var source = this.options.prepare(query, this.source);
 
     // Do nothing if source is undefined or null.
     if (typeof source === 'undefined' || source === null) {
@@ -467,20 +533,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
     // If source is a string we assume it's a URL.
     if (typeof source === 'string') {
-      if (this.xhr) {
-        this.xhr.abort();
-      }
-
-      var callback = function (success, data) {
-        if (success) {
-          context.handleData(query, data, cacheKey);
-        }
-        else {
-          context.handleError(data);
-        }
-      };
-
-      this.xhr = SimpleAutocomplete.get(source, callback);
+      this.loadURL(query, source, cacheKey);
     }
     // Otherwise load the data directly.
     else {
@@ -665,16 +718,19 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Open the selector.
   showSelector: function () {
     if (this.selector) {
-      this.selector.style.display = 'block';
       this.fire('opened');
+      if (this.options.autoUpdateSelector === true) {
+        this.updateSelector();
+      }
+      this.selector.style.display = 'block';
     }
   },
 
   // Close the selector.
   hideSelector: function () {
     if (this.selector) {
-      this.selector.style.display = 'none';
       this.fire('closed');
+      this.selector.style.display = 'none';
     }
   },
 
@@ -709,20 +765,22 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Update the position and size of the selector.
   updateSelector: function () {
     if (this.selector && this.element) {
-      var paddingLeft, paddingRight, borderLeft, borderRight,
+      var getStyle = SimpleAutocomplete.getStyle,
+          paddingLeft, paddingRight, borderLeft, borderRight,
           bounds = this.element.getBoundingClientRect(),
           selector = this.selector;
 
-      paddingLeft = parseInt(SimpleAutocomplete.getStyle(selector, 'paddingLeft'), 10) || 0;
-      paddingRight = parseInt(SimpleAutocomplete.getStyle(selector, 'paddingRight'), 10) || 0;
-      borderLeft = parseInt(SimpleAutocomplete.getStyle(selector, 'borderLeftWidth'), 10) || 0;
-      borderRight = parseInt(SimpleAutocomplete.getStyle(selector, 'borderRightWidth'), 10) || 0;
+      paddingLeft = parseInt(getStyle(selector, 'paddingLeft'), 10) || 0;
+      paddingRight = parseInt(getStyle(selector, 'paddingRight'), 10) || 0;
+      borderLeft = parseInt(getStyle(selector, 'borderLeftWidth'), 10) || 0;
+      borderRight = parseInt(getStyle(selector, 'borderRightWidth'), 10) || 0;
 
       selector.style.position = 'absolute';
-      selector.style.left = (bounds.left) + 'px';
-      selector.style.top = (bounds.bottom) + 'px';
+      selector.style.left = bounds.left + 'px';
+      selector.style.top = bounds.bottom + 'px';
       selector.style.width = (bounds.right - bounds.left - paddingLeft - paddingRight - borderLeft - borderRight) + 'px';
     }
+    return this;
   },
 
   // Set the value of the input element.
