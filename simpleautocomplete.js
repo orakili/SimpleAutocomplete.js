@@ -403,6 +403,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
     // Bind other functions.
     this.removeRequest = SimpleAutocomplete.bind(this.removeRequest, this);
+    this.focus = SimpleAutocomplete.bind(this.focus, this);
 
     // Get the element.
     if (typeof element === 'string') {
@@ -458,6 +459,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     if (selector) {
       SimpleAutocomplete.removeEventListener(selector, 'mouseover mouseout', this.handleSuggestionOver);
       SimpleAutocomplete.removeEventListener(selector, 'mousedown', this.handleSuggestionSelect);
+      SimpleAutocomplete.removeEventListener(selector, 'mouseup', this.focus);
       selector.parentNode.removeChild(selector);
     }
 
@@ -593,10 +595,10 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       return;
     }
 
-    if (event.type === 'focus') {
+    if (event.type === 'focus' && !this.selectorIsOpen()) {
       this.handleQuery(event.target.value);
     }
-    else {
+    else if (this.preventBlur === false) {
       this.hideSelector();
     }
   },
@@ -649,6 +651,8 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
         classSuggestion = classes.suggestion,
         classSelected = classes.selected;
 
+    this.preventBlur = event.type === 'mouseover';
+
     if (hasClass(element, classSelector)) {
       return;
     }
@@ -681,6 +685,13 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       var suggestion = this.getSuggestion(element);
       this.options.select(suggestion);
       this.fire('selected', suggestion);
+    }
+  },
+
+  // Set the focus on the input element.
+  focus: function() {
+    if (this.element) {
+      this.element.focus();
     }
   },
 
@@ -757,6 +768,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
       SimpleAutocomplete.addEventListener(selector, 'mouseover mouseout', this.handleSuggestionOver);
       SimpleAutocomplete.addEventListener(selector, 'mousedown', this.handleSuggestionSelect);
+      SimpleAutocomplete.addEventListener(selector, 'mouseup', this.focus);
 
       document.body.appendChild(selector);
     }
@@ -766,21 +778,32 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   updateSelector: function () {
     if (this.selector && this.element) {
       var getStyle = SimpleAutocomplete.getStyle,
-          paddingLeft, paddingRight, borderLeft, borderRight,
+          selector = this.selector,
+          documentElement = document.documentElement,
+          body = document.body,
           bounds = this.element.getBoundingClientRect(),
-          selector = this.selector;
-
-      paddingLeft = parseInt(getStyle(selector, 'paddingLeft'), 10) || 0;
-      paddingRight = parseInt(getStyle(selector, 'paddingRight'), 10) || 0;
-      borderLeft = parseInt(getStyle(selector, 'borderLeftWidth'), 10) || 0;
-      borderRight = parseInt(getStyle(selector, 'borderRightWidth'), 10) || 0;
+          paddingLeft = parseInt(getStyle(selector, 'paddingLeft'), 10) || 0,
+          paddingRight = parseInt(getStyle(selector, 'paddingRight'), 10) || 0,
+          borderLeft = parseInt(getStyle(selector, 'borderLeftWidth'), 10) || 0,
+          borderRight = parseInt(getStyle(selector, 'borderRightWidth'), 10) || 0,
+          scrollTop = window.pageYOffset || documentElement.scrollTop || body.scrollTop,
+          scrollLeft = window.pageXOffset || documentElement.scrollLeft || body.scrollLeft,
+          clientTop = documentElement.clientTop || body.clientTop || 0,
+          clientLeft = documentElement.clientLeft || body.clientLeft || 0,
+          top = bounds.bottom + scrollTop - clientTop,
+          left = bounds.left + scrollLeft - clientLeft;
 
       selector.style.position = 'absolute';
-      selector.style.left = bounds.left + 'px';
-      selector.style.top = bounds.bottom + 'px';
+      selector.style.left = left + 'px';
+      selector.style.top = top + 'px';
       selector.style.width = (bounds.right - bounds.left - paddingLeft - paddingRight - borderLeft - borderRight) + 'px';
     }
     return this;
+  },
+
+  // Indicate whether the selector is shown or not.
+  selectorIsOpen: function () {
+   return this.selector.style.display !== 'none';
   },
 
   // Set the value of the input element.
