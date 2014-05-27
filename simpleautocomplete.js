@@ -19,12 +19,13 @@ SimpleAutocomplete.setTimeout = function (callback, delay) {
   return setTimeout(function () { callback.apply(context, args); }, delay);
 };
 
-// Send a GET request to a url.
-SimpleAutocomplete.get = function (url, callback, options) {
+// Send request to a url.
+SimpleAutocomplete.send = function (url, callback, options) {
   var xhr = new XMLHttpRequest(),
       success = 200, handler;
 
-  if (!('onload' in xhr)) {
+  // Check if we can use XMLHttpRequest or try with XDomainRequest (IE).
+  if (!('withCredentials' in xhr)) {
     if (window.XDomainRequest) {
       xhr = new window.XDomainRequest();
       success = undefined;
@@ -34,6 +35,17 @@ SimpleAutocomplete.get = function (url, callback, options) {
       return null;
     }
   }
+
+  options = options || {};
+
+  var method = typeof options.method !== 'undefined' ? options.method : 'GET',
+      headers = typeof options.headers !== 'undefined' ? options.headers : null,
+      data = typeof options.data !== 'undefined' ? options.data : null;
+
+  // Clean options.
+  delete options.method;
+  delete options.headers;
+  delete options.data;
 
   // Make sure the callback is executed only once by setting it to noop.
   handler = function () {
@@ -56,26 +68,36 @@ SimpleAutocomplete.get = function (url, callback, options) {
     handler(false, this.statusText);
   };
 
-  xhr.open('GET', url, true);
+  xhr.open(method, url, true);
 
-  // Set headers if any.
-  if (options && options.headers && 'withCredentials' in xhr) {
-    var headers = options.headers, header;
-    for (header in headers) {
+  // Set headers if any (only works with XMLHttpRequest).
+  if (headers && 'withCredentials' in xhr) {
+    for (var header in headers) {
       if (headers.hasOwnProperty(header)) {
         xhr.setRequestHeader(header, headers[header]);
       }
     }
-    delete options.headers;
   }
 
   // Extra parameters and overrides.
   SimpleAutocomplete.extend(xhr, options);
 
-  xhr.send(null);
+  xhr.send(data);
 
   return xhr;
 };
+// Send a GET request to a URL.
+SimpleAutocomplete.get = function(url, callback, options) {
+  options = options || {};
+  options.method = 'GET';
+  return SimpleAutocomplete.send(url, callback, options);
+}
+// Send a POST request to a URL.
+SimpleAutocomplete.post = function(url, callback, options) {
+  options = options || {};
+  options.method = 'POST';
+  return SimpleAutocomplete.send(url, callback, options);
+}
 
 // Add an event to an element. Return the handler.
 SimpleAutocomplete.addEventListener = function (element, eventName, handler, context) {
