@@ -715,6 +715,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     if (this.element) {
       this.element.focus();
     }
+    return this;
   },
 
   // Display selector.
@@ -746,6 +747,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     else {
       this.hideSelector();
     }
+    return this;
   },
 
   // Open the selector.
@@ -757,6 +759,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       }
       this.selector.style.display = 'block';
     }
+    return this;
   },
 
   // Close the selector.
@@ -765,6 +768,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       this.fire('closed');
       this.selector.style.display = 'none';
     }
+    return this;
   },
 
   // Build the selector.
@@ -1030,18 +1034,23 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
 
   // Highlight the query terms in the suggestions.
   highlight: function (query, label) {
-    var removeDiacritics = SimpleAutocomplete.removeDiacritics,
-        escape = SimpleAutocomplete.escapeRegExp,
-        trim = SimpleAutocomplete.trim,
-        terms = escape(removeDiacritics(trim(query))).split(/\s+/),
-        string = removeDiacritics(label),
-        matcher = new RegExp('(' + terms.join('|') + ')', 'g'),
-        result, replacements = [];
+    query = SimpleAutocomplete.trim(query);
+    if (query !== '') {
+      var removeDiacritics = SimpleAutocomplete.removeDiacritics,
+          escape = SimpleAutocomplete.escapeRegExp,
+          terms = escape(removeDiacritics(query)).split(/\s+/),
+          string = removeDiacritics(label),
+          matcher = new RegExp('(' + terms.join('|') + ')', 'g'),
+          result, replacements = [];
 
-    while ((result = matcher.exec(string)) !== null) {
-      replacements.push(escape(label.substr(result.index, result[1].length)));
+      while ((result = matcher.exec(string)) !== null) {
+        replacements.push(escape(label.substr(result.index, result[1].length)));
+      }
+      if (replacements.length) {
+        return label.replace(new RegExp('(' + replacements.join('|') + ')', 'g'), '<strong>$1</strong>');
+      }
     }
-    return label.replace(new RegExp('(' + replacements.join('|') + ')', 'g'), '<strong>$1</strong>');
+    return label;
   },
 
   // Find the suggestions matching the query terms from the source.
