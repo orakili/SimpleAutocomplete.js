@@ -22,17 +22,23 @@ SimpleAutocomplete.setTimeout = function (callback, delay) {
 // Send request to a url.
 SimpleAutocomplete.send = function (url, callback, options) {
   var xhr = new XMLHttpRequest(),
+      location = window.location.protocol + '//' + window.location.hostname,
+      pattern = '^' + SimpleAutocomplete.escapeRegExp(location) + '(\/|$)',
+      sameDomain = new RegExp(pattern),
+      absoluteURL = new RegExp('^(?:[a-z]+:)?//', 'i'),
       success = 200, handler;
 
   // Check if we can use XMLHttpRequest or try with XDomainRequest (IE).
-  if (!('withCredentials' in xhr)) {
-    if (window.XDomainRequest) {
-      xhr = new window.XDomainRequest();
-      success = undefined;
-    }
-    else {
-      callback(false, 'Browser not supported.');
-      return null;
+  if (absoluteURL.test(url) && !sameDomain.test(url)) {
+    if (!('withCredentials' in xhr)) {
+      if (window.XDomainRequest) {
+        xhr = new window.XDomainRequest();
+        success = undefined;
+      }
+      else {
+        callback(false, 'Browser not supported.');
+        return null;
+      }
     }
   }
 
