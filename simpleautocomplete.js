@@ -104,6 +104,14 @@ SimpleAutocomplete.addEventListener = function (element, eventName, handler, con
   var elements = (element === document || element.tagName) ? [element] : element,
       names = eventName.split(/\s+/), i, l, j, m;
 
+  if (!document.addEventListener) {
+    var callback = handler;
+    handler = function (event) {
+      event.target = event.target || event.srcElement;
+      callback.call(this, event);
+    };
+  }
+
   if (context) {
     handler = SimpleAutocomplete.bind(handler, context);
   }
