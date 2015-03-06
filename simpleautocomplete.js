@@ -26,21 +26,8 @@ SimpleAutocomplete.send = function (url, callback, options) {
       pattern = '^' + SimpleAutocomplete.escapeRegExp(location) + '(\/|$)',
       sameDomain = new RegExp(pattern),
       absoluteURL = new RegExp('^(?:[a-z]+:)?//', 'i'),
+      useOnreadyState = false,
       success = 200, handler;
-
-  // Check if we can use XMLHttpRequest or try with XDomainRequest (IE).
-  if (absoluteURL.test(url) && !sameDomain.test(url)) {
-    if (!('withCredentials' in xhr)) {
-      if (window.XDomainRequest) {
-        xhr = new window.XDomainRequest();
-        success = undefined;
-      }
-      else {
-        callback(false, 'Browser not supported.');
-        return null;
-      }
-    }
-  }
 
   options = options || {};
 
@@ -53,26 +40,57 @@ SimpleAutocomplete.send = function (url, callback, options) {
   delete options.headers;
   delete options.data;
 
+  // Check if we can use XMLHttpRequest or try with XDomainRequest (IE).
+  if (!('withCredentials' in xhr)) {
+    if (absoluteURL.test(url) && !sameDomain.test(url)) {
+      if (window.XDomainRequest) {
+        xhr = new window.XDomainRequest();
+        success = undefined;
+      }
+      else {
+        callback(false, 'Browser not supported.');
+        return null;
+      }
+    }
+    else {
+      useOnreadyState = true;
+    }
+  }
+
   // Make sure the callback is executed only once by setting it to noop.
   handler = function () {
     callback.apply(xhr, arguments);
     callback = function () {};
   };
 
-  xhr.onprogress = function () {};
-
-  xhr.onload = function () {
-    if (this.status === success) {
-      handler(true, this.responseText);
+  if (useOnreadyState) {
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status === success) {
+          handler(true, xhr.responseText);
+        }
+        else {
+          handler(false, xhr.statusText);
+        }
+      }
     }
-    else {
+  }
+  else {
+    xhr.onprogress = function () {};
+
+    xhr.onload = function () {
+      if (this.status === success) {
+        handler(true, this.responseText);
+      }
+      else {
+        handler(false, this.statusText);
+      }
+    };
+
+    xhr.onerror = function () {
       handler(false, this.statusText);
-    }
-  };
-
-  xhr.onerror = function () {
-    handler(false, this.statusText);
-  };
+    };
+  }
 
   xhr.open(method, url, true);
 
