@@ -443,6 +443,8 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     this.cache = {};
     this.listeners = {};
     this.suggestionMatcher = new RegExp(this.options.classes.suggestion + '-(\\d+)');
+    this.preventBlur = false;
+    this.selection = null;
 
     // Bind event handlers.
     this.handleFocus = SimpleAutocomplete.bind(this.handleFocus, this);
