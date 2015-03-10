@@ -418,7 +418,11 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     // Maximum number of concurrent requests.
     maxRequests: 8,
     // Automatically update the selector position before display.
-    autoUpdateSelector: false,
+    autoUpdateSelector: true,
+    // Automatically select the first entry when the selector opens.
+    autoSelectFirst: true,
+    // Set the focus on the input element when the selector opens.
+    focusOnOpen: true,
 
     // Classes used to theme the autocomplete widget.
     classes: {
@@ -785,10 +789,21 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Open the selector.
   showSelector: function () {
     if (this.selector) {
+      // Update position.
       if (this.options.autoUpdateSelector === true) {
         this.updateSelector();
       }
+      // Select first entry.
+      if (this.options.autoSelectFirst === true) {
+        this.selectSuggestion(1);
+      }
+      // Show the selector.
       this.selector.style.display = 'block';
+      // Focus the input element.
+      if (this.options.focusOnOpen === true) {
+        this.focus();
+      }
+      // Fire the 'opened' event.
       this.fire('opened');
     }
     return this;
