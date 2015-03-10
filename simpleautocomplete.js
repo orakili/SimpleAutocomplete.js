@@ -652,7 +652,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
     if (event.type === 'focus' && !this.selectorIsOpen()) {
       this.handleQuery(event.target.value);
     }
-    else if (this.preventBlur === false) {
+    else if (event.type === 'blur' && this.preventBlur === false && this.selectorIsOpen()) {
       this.hideSelector();
     }
   },
@@ -785,11 +785,11 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Open the selector.
   showSelector: function () {
     if (this.selector) {
-      this.fire('opened');
       if (this.options.autoUpdateSelector === true) {
         this.updateSelector();
       }
       this.selector.style.display = 'block';
+      this.fire('opened');
     }
     return this;
   },
@@ -797,8 +797,8 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
   // Close the selector.
   hideSelector: function () {
     if (this.selector) {
-      this.fire('closed');
       this.selector.style.display = 'none';
+      this.fire('closed');
     }
     return this;
   },
