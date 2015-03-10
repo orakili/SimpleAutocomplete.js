@@ -663,7 +663,7 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       return;
     }
 
-    var key = event.witch ? event.witch : event.keyCode;
+    var key = event.which || event.keyCode;
 
     if (event.type === 'keydown') {
       switch (key) {
@@ -818,9 +818,9 @@ SimpleAutocomplete.Autocomplete = SimpleAutocomplete.Class.extend({
       this.selector = selector;
       // If available, we keep a reference to the selected suggestions.
       // It's a live HTMLCollection.
-      if (selector.getElementsByClassName) {
+      /*if (selector.getElementsByClassName) {
         this.selection = selector.getElementsByClassName(classSelected);
-      }
+      }*/
 
       this.updateSelector();
 
